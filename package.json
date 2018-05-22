@@ -1,0 +1,24 @@
+{
+  "name": "db-concurrency",
+  "version": "1.0.0",
+  "description": "test mysql concurrency",
+  "main": "bin/run",
+  "scripts": {
+    "start": "node .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Aref Mirhosseini <code@arefmirhosseini.com>",
+  "license": "ISC",
+  "dependencies": {
+    "async": "^2.6.1",
+    "esm": "^3.0.36",
+    "mysql2": "^1.5.3",
+    "request": "^2.87.0",
+    "sequelize": "^4.37.8"
+  },
+  "devDependencies": {},
+  "esm": {
+    "mode": "all",
+    "cjs": true
+  }
+}
