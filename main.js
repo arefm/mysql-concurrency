@@ -4,6 +4,10 @@ import http from 'http'
 import { waterfall, parallel } from 'async'
 import Sequelize from 'sequelize'
 import request from 'request'
+import cls from 'continuation-local-storage'
+
+const Session = cls.createNamespace('my-session')
+Sequelize.useCLS(Session)
 
 waterfall([
     (callback) => {
@@ -40,22 +44,24 @@ waterfall([
                     })
                     .then(() => {
                         console.log('Model Synced.')
-                        callback(null, StatsModel)
+                        callback(null, dbConn, StatsModel)
                     })
                     .catch((err) => callback(err))
+                return null
             })
             .catch((err) => callback(err))
     }
-], (err, Model) => {
+], (err, dbConn, Model) => {
     if (err) {
         throw new Error(err)
         return
     }
 
     http.createServer((req, res) => {
-    	const httpReq = `${req.method} ${req.url}`
+        const httpReq = `${req.method} ${req.url}`
         switch (httpReq) {
             case 'GET /':
+            	// problem happens here...
                 Model.findOne({
                         where: { id: 1 },
                         attributes: ['id', 'counter', 'updatedAt']
@@ -79,35 +85,75 @@ waterfall([
                         throw new Error(err)
                     })
                 break
+            case 'GET /solution':
+            	// trying to use transaction...
+                dbConn.transaction(trans1 => {
+                    console.log('transaction session (trans1):', Session.get('transaction') === trans1)
+                    return Model.findOne({
+                            where: { id: 1 },
+                            attributes: ['id', 'counter', 'updatedAt']
+                        })
+                        .then(Item => {
+                        	dbConn.transaction(trans2 => {
+                        		console.log('transaction session (trans2):', Session.get('transaction') === trans2)
+	                            let counter = Item.counter + 1
+	                            return Model.update({
+	                                    counter: counter
+	                                }, {
+	                                    where: { id: Item.id },
+	                                    transaction: trans2
+	                                })
+	                                .then(() => {
+	                                    console.log(`updating counter from ${Item.counter} to ${counter}`)
+	                                    res.end(String(counter))
+	                                    // return trans2.commit()
+	                                })
+	                                .catch(err => {
+	                                    throw new Error(err)
+	                                    // return trans2.rollback()
+	                                })
+                        	})
+                            return null
+                        })
+                        .catch(err => {
+                            throw new Error(err)
+                        })
+                    return null
+                })
+                break
             case 'POST /':
+            case 'POST /solution':
+            	let Url = 'http://localhost:3000/'
+            	if (req.url === '/solution')
+            		Url += 'solution'
                 parallel({
                     updCounter1: (callback) => {
-                        request.get('http://localhost:3000/', (err, resp, body) => {
+                        request.get(Url, (err, resp, body) => {
                             if (err)
                                 return callback(err)
                             callback(null, body)
                         })
                     },
                     updCounter2: (callback) => {
-                        request.get('http://localhost:3000/', (err, resp, body) => {
+                        request.get(Url, (err, resp, body) => {
                             if (err)
                                 return callback(err)
                             callback(null, body)
                         })
                     },
                     updCounter3: (callback) => {
-                        request.get('http://localhost:3000/', (err, resp, body) => {
+                        request.get(Url, (err, resp, body) => {
                             if (err)
                                 return callback(err)
                             callback(null, body)
                         })
                     }
                 }, (err, done) => {
-                	if (err) {
-                		throw new Error(err)
-                		return
-                	}
-                	res.end(JSON.stringify(done))
+                    if (err) {
+                        throw new Error(err)
+                        return
+                    }
+                    res.end(JSON.stringify(done))
                 })
                 break
         }
