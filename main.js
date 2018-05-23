@@ -48,76 +48,67 @@ waterfall([
     }
 ], (err, Model) => {
     if (err) {
-        log.fatal(err.message)
+        throw new Error(err)
         return
     }
 
     http.createServer((req, res) => {
-        switch (req.url) {
-            case '/':
-                switch (req.method) {
-                    case 'GET':
-                        Model.findOne({
-                                where: { id: 1 },
-                                attributes: ['id', 'counter', 'updatedAt']
+    	const request = `${req.method} ${req.url}`
+        switch (request) {
+            case 'GET /':
+                Model.findOne({
+                        where: { id: 1 },
+                        attributes: ['id', 'counter', 'updatedAt']
+                    })
+                    .then(Item => {
+                        let counter = Item.counter + 1
+                        Model.update({
+                                counter: counter
+                            }, {
+                                where: { id: Item.id }
                             })
-                            .then(Item => {
-                                let counter = Item.counter + 1
-                                Model.update({
-                                        counter: counter
-                                    }, {
-                                        where: { id: Item.id }
-                                    })
-                                    .then(() => {
-                                        console.log(`updating counter from ${Item.counter} to ${counter}`)
-                                        res.end(String(counter))
-                                    })
-                                    .catch(err => {
-                                        throw new Error(err)
-                                    })
+                            .then(() => {
+                                console.log(`updating counter from ${Item.counter} to ${counter}`)
+                                res.end(String(counter))
                             })
                             .catch(err => {
                                 throw new Error(err)
                             })
-                        break
-                    case 'POST':
-                        parallel({
-                            updCounter1: (callback) => {
-                                request.get('http://localhost:3000/', (err, resp, body) => {
-                                    if (err) {
-                                        throw new Error(err)
-                                        return
-                                    }
-                                    callback(null, body)
-                                })
-                            },
-                            updCounter2: (callback) => {
-                                request.get('http://localhost:3000/', (err, resp, body) => {
-                                    if (err) {
-                                        throw new Error(err)
-                                        return
-                                    }
-                                    callback(null, body)
-                                })
-                            },
-                            updCounter3: (callback) => {
-                                request.get('http://localhost:3000/', (err, resp, body) => {
-                                    if (err) {
-                                        throw new Error(err)
-                                        return
-                                    }
-                                    callback(null, body)
-                                })
-                            }
-                        }, (err, done) => {
-                        	if (err) {
-                        		throw new Error(err)
-                        		return
-                        	}
-                        	res.end(JSON.stringify(done))
+                    })
+                    .catch(err => {
+                        throw new Error(err)
+                    })
+                break
+            case 'POST /':
+                parallel({
+                    updCounter1: (callback) => {
+                        request.get('http://localhost:3000/', (err, resp, body) => {
+                            if (err)
+                                return callback(err)
+                            callback(null, body)
                         })
-                        break
-                }
+                    },
+                    updCounter2: (callback) => {
+                        request.get('http://localhost:3000/', (err, resp, body) => {
+                            if (err)
+                                return callback(err)
+                            callback(null, body)
+                        })
+                    },
+                    updCounter3: (callback) => {
+                        request.get('http://localhost:3000/', (err, resp, body) => {
+                            if (err)
+                                return callback(err)
+                            callback(null, body)
+                        })
+                    }
+                }, (err, done) => {
+                	if (err) {
+                		throw new Error(err)
+                		return
+                	}
+                	res.end(JSON.stringify(done))
+                })
                 break
         }
     }).listen(3000)
