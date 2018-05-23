@@ -21,7 +21,8 @@ waterfall([
                 idle: 10000
             },
             operatorAliases: false,
-            logging: false
+            isolationLevel: Sequelize.Transaction.ISOLATION_LEVELS.REPEATABLE_READ
+            // logging: false
         })
 
         dbConn.authenticate()
@@ -88,29 +89,23 @@ waterfall([
             case 'GET /solution':
             	// trying to use transaction...
                 dbConn.transaction(trans1 => {
-                    console.log('transaction session (trans1):', Session.get('transaction') === trans1)
                     return Model.findOne({
                             where: { id: 1 },
                             attributes: ['id', 'counter', 'updatedAt']
                         })
                         .then(Item => {
                         	dbConn.transaction(trans2 => {
-                        		console.log('transaction session (trans2):', Session.get('transaction') === trans2)
-	                            let counter = Item.counter + 1
 	                            return Model.update({
-	                                    counter: counter
+	                                    counter: Sequelize.literal('counter + 1')
 	                                }, {
 	                                    where: { id: Item.id },
 	                                    transaction: trans2
 	                                })
 	                                .then(() => {
-	                                    console.log(`updating counter from ${Item.counter} to ${counter}`)
 	                                    res.end(String(counter))
-	                                    // return trans2.commit()
 	                                })
 	                                .catch(err => {
 	                                    throw new Error(err)
-	                                    // return trans2.rollback()
 	                                })
                         	})
                             return null
