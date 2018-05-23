@@ -53,8 +53,8 @@ waterfall([
     }
 
     http.createServer((req, res) => {
-    	const request = `${req.method} ${req.url}`
-        switch (request) {
+    	const httpReq = `${req.method} ${req.url}`
+        switch (httpReq) {
             case 'GET /':
                 Model.findOne({
                         where: { id: 1 },
