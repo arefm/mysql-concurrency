@@ -102,7 +102,7 @@ waterfall([
 	                                    transaction: trans2
 	                                })
 	                                .then(() => {
-	                                    res.end(String(counter))
+	                                    res.end('updated.')
 	                                })
 	                                .catch(err => {
 	                                    throw new Error(err)
@@ -121,34 +121,25 @@ waterfall([
             	let Url = 'http://localhost:3000/'
             	if (req.url === '/solution')
             		Url += 'solution'
-                parallel({
-                    updCounter1: (callback) => {
-                        request.get(Url, (err, resp, body) => {
+            	
+            	const totalParallelRequestsCount = 100
+            	let parallelRequests = {}
+
+            	for (let i = 1; i <= totalParallelRequestsCount; i++) {
+            		parallelRequests[`updCounter${i}`] = (callback) => {
+            			request.get(Url, (err, resp, body) => {
                             if (err)
                                 return callback(err)
                             callback(null, body)
                         })
-                    },
-                    updCounter2: (callback) => {
-                        request.get(Url, (err, resp, body) => {
-                            if (err)
-                                return callback(err)
-                            callback(null, body)
-                        })
-                    },
-                    updCounter3: (callback) => {
-                        request.get(Url, (err, resp, body) => {
-                            if (err)
-                                return callback(err)
-                            callback(null, body)
-                        })
-                    }
-                }, (err, done) => {
+            		}
+            	}
+                parallel(parallelRequests, (err, done) => {
                     if (err) {
                         throw new Error(err)
                         return
                     }
-                    res.end(JSON.stringify(done))
+                    res.end(`total parallel requests sent: ${totalParallelRequestsCount}`)
                 })
                 break
         }
